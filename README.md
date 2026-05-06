@@ -37,6 +37,25 @@ Das Installationsskript kümmert sich um alles. Folgende Pakete werden automatis
 
 Python 3 mit GTK3 (vorinstalliert auf Ubuntu/Linux Mint) wird für den Advanced-Dialog verwendet.
 
+### Schriftarten für DOCX-Konvertierung (empfohlen)
+
+Word-Dokumente verwenden häufig Schriftarten die unter Linux nicht vorinstalliert sind (Calibri, Cambria, Verdana, Georgia u.a.). Fehlen diese Schriften, ersetzt LibreOffice sie durch ähnliche Alternativen mit leicht abweichenden Zeichenabständen – das kann bei engen Seitenrändern dazu führen, dass Inhalte auf eine zusätzliche Seite umbrechen.
+
+Mit diesen drei Paketen wird das Problem für praktisch alle gängigen Word-Dokumente behoben:
+
+| Paket | Schriftarten |
+|---|---|
+| `fonts-crosextra-carlito` | Calibri-kompatibler Ersatz (metrisch identisch) |
+| `fonts-crosextra-caladea` | Cambria-kompatibler Ersatz (metrisch identisch) |
+| `ttf-mscorefonts-installer` | Echte MS-Fonts: Arial, Times New Roman, Verdana, Georgia, Trebuchet MS, Tahoma, Impact u.a. |
+
+```bash
+sudo apt install fonts-crosextra-carlito fonts-crosextra-caladea ttf-mscorefonts-installer
+sudo fc-cache -fv
+```
+
+> Hinweis: Bei `ttf-mscorefonts-installer` erscheint ein EULA-Dialog (Microsoft-Lizenz) – mit **OK** bestätigen.
+
 ## Installation
 
 ```bash
@@ -79,9 +98,11 @@ Beim Zusammenfügen von PDFs, die digitale Signaturen enthalten, bleiben die Sig
 
 ### Word-Dokumente (DOCX, DOC)
 
-Word-Dokumente werden intern über LibreOffice im Headless-Modus in PDF konvertiert, bevor sie zusammengeführt werden. LibreOffice ist nicht vollständig kompatibel mit dem Microsoft Word Format. Dabei können **Seitenumbrüche, Schriftarten, Spalten-Layouts und komplexe Tabellen** vom Original abweichen.
+Word-Dokumente werden intern über LibreOffice im Headless-Modus in PDF konvertiert, bevor sie zusammengeführt werden. Dabei können **Seitenumbrüche, Schriftarten, Spalten-Layouts und komplexe Tabellen** vom Original abweichen.
 
-**Empfehlung:** Word-Dokumente mit layout-kritischen Inhalten vorab manuell in PDF exportieren (z.B. über Microsoft Word oder einen anderen kompatiblen Editor) und die fertige PDF-Datei anschließend mit diesem Tool zusammenfügen.
+Der häufigste Fehler – Inhalt bricht unerwartet auf eine zusätzliche Seite um – wird durch fehlende Schriftarten verursacht: LibreOffice ersetzt nicht installierte Fonts durch Alternativen mit leicht abweichenden Zeichenbreiten, was bei engen Seitenrändern zum Überlauf führt. **Lösung: die empfohlenen Schriftartenpakete installieren** (siehe [Schriftarten für DOCX-Konvertierung](#schriftarten-für-docx-konvertierung-empfohlen)).
+
+Für Dokumente mit sehr komplexem Layout (Spalten, spezielle Tabellen) empfiehlt es sich, diese vorab manuell in PDF zu exportieren und die fertige PDF anschließend mit diesem Tool zusammenzufügen.
 
 ## Deinstallation
 
