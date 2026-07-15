@@ -37,11 +37,15 @@ verarbeite_datei() {
             PDF_LIST+=("$FILE")
             ;;
         doc|docx|odt|ods|odp|pptx|xlsx|txt|rtf)
+            if ! command -v libreoffice &>/dev/null; then
+                ERRORS+=("$(basename "$FILE") [LibreOffice nicht im PATH – Symlink prüfen]")
+                return
+            fi
             COUNTER=$((COUNTER+1))
             BASENAME=$(basename "${FILE%.*}")
             LO_OUT="$TMPDIR/$BASENAME.pdf"
             CONVERTED="$TMPDIR/${COUNTER}_$BASENAME.pdf"
-            libreoffice --headless --convert-to pdf "$FILE" --outdir "$TMPDIR" 2>/dev/null
+            libreoffice --headless --norestore --convert-to pdf "$FILE" --outdir "$TMPDIR" 2>/dev/null
             if [ -f "$LO_OUT" ]; then
                 mv "$LO_OUT" "$CONVERTED"
                 PDF_LIST+=("$CONVERTED")

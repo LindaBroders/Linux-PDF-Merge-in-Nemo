@@ -50,6 +50,18 @@ NEEDED=()
 for CMD in libreoffice pdftk img2pdf zenity gs yad; do
     if command -v "$CMD" &>/dev/null; then
         echo "  ✓ $CMD – bereits installiert"
+    elif [ "$CMD" = "libreoffice" ]; then
+        # Manuelle Installation in /opt/ erkennen (z.B. von libreoffice.org)
+        LO_OPT=$(find /opt -maxdepth 3 -name "soffice" 2>/dev/null | head -1)
+        if [ -n "$LO_OPT" ]; then
+            echo "  → LibreOffice in $LO_OPT gefunden (manuelle Installation)"
+            ln -sf "$LO_OPT" /usr/local/bin/libreoffice
+            ln -sf "$LO_OPT" /usr/local/bin/soffice
+            echo "  ✓ libreoffice – Symlink nach /usr/local/bin/ erstellt"
+        else
+            echo "  ✗ $CMD – fehlt"
+            NEEDED+=("$CMD")
+        fi
     else
         echo "  ✗ $CMD – fehlt"
         NEEDED+=("$CMD")
