@@ -12,9 +12,10 @@ Bash-Skripte zum Zusammenfügen von Dateien zu PDF direkt aus dem Nemo-Dateimana
 
 ## Features
 
-- **Zwei Merge-Modi per Rechtsklick:**
-  - **PDF Quick Merge** – sofort zusammenfügen, keine weiteren Fragen
-  - **PDF Advanced Merge** – Reihenfolge per Drag & Drop festlegen, Seitengröße und Ausrichtung wählen
+- **Drei Modi per Rechtsklick:**
+  - **PDF Quick Merge** – sofort zusammenfügen, keine Fragen. Speichert als `Merge.pdf` (bzw. `Merge2.pdf`, `Merge3.pdf` …) direkt im Ordner der Quelldateien
+  - **PDF Advanced Merge** – Reihenfolge per Drag & Drop festlegen, Seitengröße und Ausrichtung wählen. Vorgeschlagener Dateiname = Name der obersten Datei in der Liste
+  - **Als PDF konvertieren** – jede markierte Datei einzeln als eigenes PDF im selben Ordner (Bilder werden auf A4 angepasst). Kein Zusammenführen
 - **Unterstützte Formate:** PDF, Bilder (JPG, PNG, TIFF, BMP, WebP, GIF), Office-Dokumente (ODT, ODS, ODP, DOCX, XLSX, PPTX, DOC), Text (TXT, RTF)
 - **A4-Anpassung** (Advanced) – große Seiten werden auf A4 verkleinert (300 DPI), kleine Bilder unter 200 DPI bleiben in Originalgröße und werden zentriert
 - **Ausrichtung** (Advanced) – Original beibehalten, Hochformat oder Querformat erzwingen
@@ -65,7 +66,7 @@ sudo bash install.sh
 nemo -q && nemo &
 ```
 
-Der Installer prüft welche Abhängigkeiten bereits vorhanden sind und installiert nur die fehlenden Pakete. Nach der Installation und dem Nemo-Neustart erscheinen zwei Einträge im Rechtsklick-Menü.
+Der Installer prüft welche Abhängigkeiten bereits vorhanden sind und installiert nur die fehlenden Pakete. Nach der Installation und dem Nemo-Neustart erscheinen drei Einträge im Rechtsklick-Menü.
 
 ## Verwendung
 
@@ -73,8 +74,7 @@ Der Installer prüft welche Abhängigkeiten bereits vorhanden sind und installie
 
 1. Dateien in Nemo markieren
 2. Rechtsklick → **PDF Quick Merge**
-3. Speicherort wählen
-4. Fertig
+3. Fertig – das Ergebnis liegt als `Merge.pdf` im Ordner der Quelldateien (weitere Durchläufe: `Merge2.pdf`, `Merge3.pdf` …)
 
 ### PDF Advanced Merge
 
@@ -85,10 +85,18 @@ Der Installer prüft welche Abhängigkeiten bereits vorhanden sind und installie
    - **Seitengröße** wählen (Original oder A4-Anpassung)
    - **Ausrichtung** wählen (Original, Hochformat, Querformat)
    - Optional: **PDF nach Merge öffnen** ankreuzen
-4. Speicherort wählen
+4. Speicherort wählen (vorgeschlagener Name = oberste Datei in der Liste)
 5. Fertig
 
 > Tipp: Mit „PDF Arranger" (separat installierbar) können einzelne Seiten nachträglich gedreht oder verschoben werden.
+
+### Als PDF konvertieren
+
+1. Dateien in Nemo markieren (Bilder, Office-Dokumente, Text …)
+2. Rechtsklick → **Als PDF konvertieren**
+3. Fertig – jede Datei wird als eigenes PDF im selben Ordner gespeichert (`bild.png` → `bild.pdf`)
+
+Bilder werden dabei auf A4 angepasst (Hoch- oder Querformat je nach Bild). Bereits vorhandene PDF-Dateien werden übersprungen.
 
 ## Bekannte Einschränkungen
 
@@ -112,6 +120,7 @@ rm ~/.local/bin/advanced_dialog.py
 rm ~/.local/share/icons/pdf-merge-icon.svg
 rm ~/.local/share/nemo/actions/pdf-quick-merge.nemo_action
 rm ~/.local/share/nemo/actions/pdf-advanced-merge.nemo_action
+rm ~/.local/share/nemo/actions/pdf-convert.nemo_action
 nemo -q && nemo &
 ```
 

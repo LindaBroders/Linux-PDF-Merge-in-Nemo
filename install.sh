@@ -17,9 +17,10 @@ echo "  1. Prüft ob folgende Abhängigkeiten installiert sind:"
 echo "     libreoffice, pdftk, img2pdf, zenity, ghostscript, yad"
 echo "  2. Installiert fehlende Pakete automatisch (apt)"
 echo "  3. Kopiert das Skript und Icon nach $INSTALL_DIR/"
-echo "  4. Richtet zwei Nemo-Rechtsklick-Einträge ein:"
+echo "  4. Richtet drei Nemo-Rechtsklick-Einträge ein:"
 echo "     - PDF Quick Merge"
 echo "     - PDF Advanced Merge"
+echo "     - Als PDF konvertieren"
 echo ""
 
 # Prüfen ob als root ausgeführt
@@ -154,6 +155,18 @@ Extensions=pdf;doc;docx;odt;ods;odp;pptx;xlsx;txt;rtf;jpg;jpeg;png;gif;tiff;tif;
 EOF
 chown "$REAL_USER:$REAL_USER" "$NEMO_ACTIONS_DIR/pdf-advanced-merge.nemo_action"
 
+# Als PDF konvertieren (Batch – jede Datei einzeln)
+cat > "$NEMO_ACTIONS_DIR/pdf-convert.nemo_action" << EOF
+[Nemo Action]
+Name=Als PDF konvertieren
+Comment=Jede markierte Datei einzeln als PDF im selben Ordner speichern
+Exec=bash "$INSTALL_DIR/$SCRIPT_NAME" --convert %F
+Icon-Name=$ICON_DIR/$ICON_NAME
+Selection=Any
+Extensions=doc;docx;odt;ods;odp;pptx;xlsx;txt;rtf;jpg;jpeg;png;gif;tiff;tif;bmp;webp;
+EOF
+chown "$REAL_USER:$REAL_USER" "$NEMO_ACTIONS_DIR/pdf-convert.nemo_action"
+
 # Alte Action-Datei entfernen (falls von v1.0 vorhanden)
 rm -f "$NEMO_ACTIONS_DIR/pdf-zusammenfuegen.nemo_action"
 
@@ -165,6 +178,7 @@ echo "Nemo neu starten um die Rechtsklick-Einträge zu aktivieren:"
 echo "  nemo -q && nemo &"
 echo ""
 echo "Neue Rechtsklick-Einträge:"
-echo "  • PDF Quick Merge    – direkt zusammenfügen"
-echo "  • PDF Advanced Merge – Reihenfolge & Optionen"
+echo "  • PDF Quick Merge      – direkt zusammenfügen (Ordner der Quelldatei, Merge.pdf)"
+echo "  • PDF Advanced Merge   – Reihenfolge & Optionen"
+echo "  • Als PDF konvertieren – jede Datei einzeln als PDF (A4)"
 echo ""

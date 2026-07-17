@@ -111,12 +111,14 @@ konvertiere_dateien() {
     fi
 }
 
+# $1 = optionaler Default-Pfad (inkl. Dateiname)
 speicherort_waehlen() {
+    local DEFAULT="${1:-$HOME/zusammengefuehrt.pdf}"
     OUTPUT=$(zenity --file-selection \
         --save \
         --confirm-overwrite \
         --title="Speicherort und Dateiname wählen" \
-        --filename="$HOME/zusammengefuehrt.pdf" \
+        --filename="$DEFAULT" \
         --file-filter="PDF-Dateien | *.pdf")
 
     [ -z "$OUTPUT" ] && { rm -rf "$TMPDIR"; exit 0; }
@@ -134,12 +136,49 @@ zusammenfuegen() {
     fi
 }
 
+# Passt ein einzelnes PDF ($1) auf A4 an ($2), Orientierung bleibt erhalten.
+# Identische Logik wie der Advanced-Merge-Pfad "A4 + Original-Ausrichtung".
+auf_a4_anpassen() {
+    local IN="$1" OUT="$2"
+    local PAGE_DATA W H ROT GS_W GS_H
+    PAGE_DATA=$(pdftk "$IN" dump_data)
+    # pdftk formatiert große Zahlen mit Tausender-Komma (z.B. "2,250") – entfernen, sonst scheitert bc
+    W=$(echo "$PAGE_DATA" | grep "PageMediaDimensions" | head -1 | awk '{print $2}' | tr -d ',')
+    H=$(echo "$PAGE_DATA" | grep "PageMediaDimensions" | head -1 | awk '{print $3}' | tr -d ',')
+    ROT=$(echo "$PAGE_DATA" | grep "PageMediaRotation" | head -1 | awk '{print $2}')
+
+    if [ "$ROT" = "90" ] || [ "$ROT" = "270" ]; then
+        local T="$W"; W="$H"; H="$T"
+    fi
+
+    if (( $(echo "$W > $H" | bc -l) )); then
+        GS_W=841.89; GS_H=595.28
+    else
+        GS_W=595.28; GS_H=841.89
+    fi
+
+    gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite \
+       -dPDFFitPage -dFIXEDMEDIA -dAutoRotatePages=/None \
+       -dDEVICEWIDTHPOINTS="$GS_W" -dDEVICEHEIGHTPOINTS="$GS_H" \
+       -sOutputFile="$OUT" "$IN" 2>/dev/null
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
-# QUICK MERGE – keine Dialoge, direkt zusammenfügen
+# QUICK MERGE – kein Dialog, direkt in Ordner der Quelldatei speichern
 # ══════════════════════════════════════════════════════════════════════════════
 
 quick_merge() {
-    speicherort_waehlen
+    # Speicherort: Ordner der ersten Quelldatei, Dateiname Merge / Merge2 / Merge3 …
+    local OUTDIR
+    OUTDIR=$(dirname "${ORDERED_FILES[0]}")
+    OUTPUT="$OUTDIR/Merge.pdf"
+    if [ -f "$OUTPUT" ]; then
+        local N=2
+        while [ -f "$OUTDIR/Merge${N}.pdf" ]; do
+            N=$((N+1))
+        done
+        OUTPUT="$OUTDIR/Merge${N}.pdf"
+    fi
 
     TOTAL=${#ORDERED_FILES[@]}
     ERRORS_FILE="$TMPDIR/errors.txt"
@@ -236,8 +275,12 @@ advanced_merge() {
         esac
     done <<< "$DIALOG_OUTPUT"
 
-    # ── Speicherort, Konvertierung, Zusammenfügen ────────────────────────────
-    speicherort_waehlen
+    # ── Speicherort: Default = Name der ersten Datei im Zielordner ───────────
+    local DEFAULT_DIR DEFAULT_NAME
+    DEFAULT_DIR=$(dirname "${ORDERED_FILES[0]}")
+    DEFAULT_NAME=$(basename "${ORDERED_FILES[0]%.*}")
+    speicherort_waehlen "$DEFAULT_DIR/$DEFAULT_NAME.pdf"
+
     konvertiere_dateien
     zusammenfuegen
 
@@ -259,8 +302,8 @@ advanced_merge() {
 
             # Seitenmaße und Rotation auslesen
             PAGE_DATA=$(pdftk "$PAGE_PDF" dump_data)
-            W=$(echo "$PAGE_DATA" | grep "PageMediaDimensions" | head -1 | awk '{print $2}')
-            H=$(echo "$PAGE_DATA" | grep "PageMediaDimensions" | head -1 | awk '{print $3}')
+            W=$(echo "$PAGE_DATA" | grep "PageMediaDimensions" | head -1 | awk '{print $2}' | tr -d ',')
+            H=$(echo "$PAGE_DATA" | grep "PageMediaDimensions" | head -1 | awk '{print $3}' | tr -d ',')
             ROT=$(echo "$PAGE_DATA" | grep "PageMediaRotation" | head -1 | awk '{print $2}')
 
             # Bei Rotation 90°/270° sind Breite und Höhe vertauscht
@@ -308,8 +351,8 @@ advanced_merge() {
 
             # Seitenmaße und Rotation auslesen
             PAGE_DATA=$(pdftk "$PAGE_PDF" dump_data)
-            W=$(echo "$PAGE_DATA" | grep "PageMediaDimensions" | head -1 | awk '{print $2}')
-            H=$(echo "$PAGE_DATA" | grep "PageMediaDimensions" | head -1 | awk '{print $3}')
+            W=$(echo "$PAGE_DATA" | grep "PageMediaDimensions" | head -1 | awk '{print $2}' | tr -d ',')
+            H=$(echo "$PAGE_DATA" | grep "PageMediaDimensions" | head -1 | awk '{print $3}' | tr -d ',')
             ROT=$(echo "$PAGE_DATA" | grep "PageMediaRotation" | head -1 | awk '{print $2}')
 
             # Bei Rotation 90°/270° sind Breite und Höhe effektiv vertauscht
@@ -381,14 +424,146 @@ advanced_merge() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
+# BATCH CONVERT – jede Datei einzeln als PDF im selben Ordner speichern
+# ══════════════════════════════════════════════════════════════════════════════
+
+batch_convert() {
+    TOTAL=${#ORDERED_FILES[@]}
+    ERRORS_FILE="$TMPDIR/errors.txt"
+    SKIPPED_FILE="$TMPDIR/skipped.txt"
+    SUCCESS_FILE="$TMPDIR/success.txt"
+
+    (
+    ERRORS=()
+    SKIPPED=()
+    SUCCESS=0
+    COUNTER=0
+
+    for IDX in "${!ORDERED_FILES[@]}"; do
+        FILE="${ORDERED_FILES[$IDX]}"
+        CURRENT=$((IDX + 1))
+        echo $(( CURRENT * 100 / TOTAL ))
+        echo "# Datei $CURRENT von $TOTAL: $(basename "$FILE")"
+
+        local OUTDIR FNAME EXT_LOWER OUT_PDF FILETYPE
+        OUTDIR=$(dirname "$FILE")
+        FNAME=$(basename "${FILE%.*}")
+        EXT_LOWER=$(echo "${FILE##*.}" | tr '[:upper:]' '[:lower:]')
+        OUT_PDF="$OUTDIR/$FNAME.pdf"
+
+        case "$EXT_LOWER" in
+            pdf)
+                SKIPPED+=("$(basename "$FILE")")
+                ;;
+            doc|docx|odt|ods|odp|pptx|xlsx|txt|rtf)
+                if ! command -v libreoffice &>/dev/null; then
+                    ERRORS+=("$(basename "$FILE") [LibreOffice nicht im PATH]")
+                    continue
+                fi
+                COUNTER=$((COUNTER+1))
+                LO_OUT="$TMPDIR/$FNAME.pdf"
+                libreoffice --headless --norestore --convert-to pdf "$FILE" --outdir "$TMPDIR" 2>/dev/null
+                if [ -f "$LO_OUT" ]; then
+                    mv "$LO_OUT" "$OUT_PDF"
+                    SUCCESS=$((SUCCESS+1))
+                else
+                    ERRORS+=("$(basename "$FILE")")
+                fi
+                ;;
+            jpg|jpeg|png|gif|tiff|tif|bmp|webp)
+                COUNTER=$((COUNTER+1))
+                TMP_PDF="$TMPDIR/${COUNTER}_$FNAME.pdf"
+                img2pdf "$FILE" -o "$TMP_PDF" 2>/dev/null
+                if [ -f "$TMP_PDF" ]; then
+                    auf_a4_anpassen "$TMP_PDF" "$OUT_PDF"
+                    if [ -f "$OUT_PDF" ]; then
+                        SUCCESS=$((SUCCESS+1))
+                    else
+                        ERRORS+=("$(basename "$FILE")")
+                    fi
+                else
+                    ERRORS+=("$(basename "$FILE")")
+                fi
+                ;;
+            *)
+                FILETYPE=$(file --mime-type -b "$FILE")
+                case "$FILETYPE" in
+                    image/jpeg|image/png|image/gif|image/tiff|image/bmp|image/webp)
+                        COUNTER=$((COUNTER+1))
+                        TMP_PDF="$TMPDIR/${COUNTER}_$(basename "$FILE").pdf"
+                        img2pdf "$FILE" -o "$TMP_PDF" 2>/dev/null
+                        if [ -f "$TMP_PDF" ]; then
+                            auf_a4_anpassen "$TMP_PDF" "$OUT_PDF"
+                            if [ -f "$OUT_PDF" ]; then
+                                SUCCESS=$((SUCCESS+1))
+                            else
+                                ERRORS+=("$(basename "$FILE")")
+                            fi
+                        else
+                            ERRORS+=("$(basename "$FILE")")
+                        fi
+                        ;;
+                    application/pdf)
+                        SKIPPED+=("$(basename "$FILE")")
+                        ;;
+                    *)
+                        ERRORS+=("$(basename "$FILE") [nicht unterstützt: $FILETYPE]")
+                        ;;
+                esac
+                ;;
+        esac
+    done
+
+    echo "$SUCCESS" > "$SUCCESS_FILE"
+    [ ${#ERRORS[@]} -gt 0 ]   && printf '%s\n' "${ERRORS[@]}"   > "$ERRORS_FILE"
+    [ ${#SKIPPED[@]} -gt 0 ]  && printf '%s\n' "${SKIPPED[@]}"  > "$SKIPPED_FILE"
+    echo "100"
+    ) | zenity --progress \
+        --title="Als PDF konvertieren" \
+        --text="Dateien werden konvertiert..." \
+        --percentage=0 \
+        --auto-close \
+        --no-cancel \
+        --width=350
+
+    SUCCESS_COUNT=0
+    [ -f "$SUCCESS_FILE" ] && SUCCESS_COUNT=$(cat "$SUCCESS_FILE")
+    ERROR_CONTENT=""
+    [ -s "$ERRORS_FILE" ]  && ERROR_CONTENT=$(cat "$ERRORS_FILE")
+    SKIPPED_CONTENT=""
+    [ -s "$SKIPPED_FILE" ] && SKIPPED_CONTENT=$(cat "$SKIPPED_FILE")
+
+    if [ "$SUCCESS_COUNT" -eq 0 ] && [ -z "$ERROR_CONTENT" ]; then
+        zenity --info --title="Hinweis" \
+            --text="Alle Dateien sind bereits PDFs – nichts zu konvertieren.\n\n$SKIPPED_CONTENT" \
+            --width=400
+    elif [ "$SUCCESS_COUNT" -gt 0 ] && [ -z "$ERROR_CONTENT" ]; then
+        MSG="${SUCCESS_COUNT} Datei(en) erfolgreich konvertiert."
+        [ -n "$SKIPPED_CONTENT" ] && MSG="$MSG\n\nÜbersprungen (bereits PDF):\n$SKIPPED_CONTENT"
+        zenity --info --title="Fertig!" --text="$MSG" --width=400
+    elif [ "$SUCCESS_COUNT" -gt 0 ]; then
+        MSG="${SUCCESS_COUNT} Datei(en) konvertiert.\n\nFehler bei:\n$ERROR_CONTENT"
+        [ -n "$SKIPPED_CONTENT" ] && MSG="$MSG\n\nÜbersprungen:\n$SKIPPED_CONTENT"
+        zenity --warning --title="Teilweise erfolgreich" --text="$MSG" --width=450
+    else
+        zenity --error --title="Fehler" \
+            --text="Keine Datei konvertiert.\n\n${ERROR_CONTENT}" \
+            --width=450
+    fi
+
+    rm -rf "$TMPDIR"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Modus starten
 # ══════════════════════════════════════════════════════════════════════════════
 
 case "$MODE" in
     --quick)    quick_merge ;;
     --advanced) advanced_merge ;;
+    --convert)  batch_convert ;;
     *)
-        zenity --error --title="Fehler" --text="Unbekannter Modus: $MODE\n\nVerwendung:\n  $0 --quick DATEIEN...\n  $0 --advanced DATEIEN..."
+        zenity --error --title="Fehler" --text="Unbekannter Modus: $MODE\n\nVerwendung:\n  $0 --quick DATEIEN...\n  $0 --advanced DATEIEN...\n  $0 --convert DATEIEN..."
         exit 1
         ;;
 esac
