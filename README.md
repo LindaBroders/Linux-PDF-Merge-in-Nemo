@@ -98,6 +98,32 @@ Der Installer prüft welche Abhängigkeiten bereits vorhanden sind und installie
 
 Bilder werden dabei auf A4 angepasst (Hoch- oder Querformat je nach Bild). Bereits vorhandene PDF-Dateien werden übersprungen.
 
+## Web-Dokument herunterladen (Zusatzskript)
+
+`download_web_document.py` lädt ein Dokument, das auf einer Website nur seitenweise angezeigt wird, als **eine PDF** herunter – statt jede Seite einzeln zu speichern. Nur für Dokumente verwenden, die man herunterladen darf.
+
+```bash
+sudo apt install python3-img2pdf python3-pil
+pipx install playwright   # oder: pip install --user playwright
+python3 -m playwright install chromium
+```
+
+**Modus `capture`** (funktioniert mit den meisten Viewern):
+
+```bash
+python3 download_web_document.py capture "https://…/viewer" -o Dokument.pdf
+```
+
+Es öffnet sich ein Browserfenster. Ggf. anmelden, dann **durch alle Seiten blättern/scrollen** und im Terminal **Enter** drücken. Alle geladenen Seitenbilder werden zu einer PDF zusammengefügt. Lädt der Viewer im Hintergrund die Original-PDF, wird diese direkt gespeichert. Anmeldungen bleiben für den nächsten Aufruf erhalten.
+
+**Modus `pattern`** (wenn die Seitenbilder nummerierte Adressen haben, z. B. `…/page_1.jpg`):
+
+```bash
+python3 download_web_document.py pattern "https://…/page_{n}.jpg" -o Dokument.pdf
+```
+
+Nützliche Optionen: `--keep-images ORDNER` (Einzelbilder zusätzlich speichern), `--sort url` (Reihenfolge nach Seitennummer in der Adresse), `--min-width` (kleinere Bilder wie Vorschaubilder ignorieren), `--referer` / `--header` (für Seiten, die das verlangen).
+
 ## Bekannte Einschränkungen
 
 ### Digitale Signaturen in PDF-Dateien
